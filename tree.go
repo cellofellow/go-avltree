@@ -167,7 +167,6 @@ type findData struct {
 // finder recursively scans the tree to find the node with the
 // value we're looking for
 func (d *findData) finder(node *treeNode) *treeNode {
-
 	if node != nil {
 		code := d.compare(d.lookingFor, node.value)
 		if code < 0 {
@@ -178,6 +177,23 @@ func (d *findData) finder(node *treeNode) *treeNode {
 		return node
 	}
 	return nil
+}
+
+// findpather recursively scans the tree to find the node with the value we're
+// looking for, writing each step of the path to a channel.
+func (d *findData) findpather(node *treeNode, ch chan<- *treeNode) {
+	if node == nil || ch == nil {
+		return
+	}
+	code := d.compare(d.lookingFor, node.value)
+	ch <- node
+	if code < 0 {
+		d.findpather(node.left, ch)
+	} else if code > 0 {
+		d.findpather(node.right, ch)
+	} else {
+		close(ch)
+	}
 }
 
 // Find returns the element where the comparison function matches
@@ -192,6 +208,104 @@ func (t *Tree) Find(key interface{}) interface{} {
 	}
 
 	return nil
+}
+
+// FindPath returns a slice of elements showing the path in the tree to find
+// the value.
+func (t *Tree) FindPath(key interface{}) []interface{} {
+	values := []interface{}{}
+	if key != nil && t.root != nil {
+		d := &findData{key, t.compare}
+		ch := make(chan *treeNode)
+		go d.findpather(t.root, ch)
+		for node := range ch {
+			values = append(values, node.value)
+		}
+	}
+	return values
+}
+
+type iterRangeData struct {
+	min     interface{}
+	max     interface{}
+	compare CompareFunc
+}
+
+// iterranger recursively scans the tree to find nodes within a range and
+// writes them to a channel.
+func (d *iterRangeData) iterranger(node *treeNode, ch chan<- interface{}, isRoot bool) {
+	if node == nil {
+		return
+	}
+	minCode := d.compare(d.min, node.value)
+	maxCode := d.compare(d.max, node.value)
+	if minCode < 0 {
+		d.iterranger(node.left, ch, false)
+	}
+	if minCode <= 0 && maxCode >= 0 {
+		ch <- node.value
+	}
+	if maxCode > 0 {
+		d.iterranger(node.right, ch, false)
+	}
+
+	if isRoot {
+		close(ch)
+	}
+}
+
+// IterRange returns a channel you can iterate through to on items between a
+// min and a max value (min <= x <= max).
+// min and max are optional, defaulting to FindMin() and FindMax().
+func (t *Tree) IterRange(min, max interface{}) <-chan interface{} {
+	if min == nil && max == nil {
+		return t.Iter()
+	}
+	if min == nil {
+		min = t.FindMin()
+	}
+	if max == nil {
+		max = t.FindMax()
+	}
+
+	values := make(chan interface{})
+	if t.root != nil {
+		d := &iterRangeData{min, max, t.compare}
+		go d.iterranger(t.root, values, true)
+	} else {
+		close(values)
+	}
+	return values
+}
+
+func findmax(node *treeNode) *treeNode {
+	if node.right == nil {
+		return node
+	}
+	return findmax(node.right)
+}
+
+// FindMax returns the rightmost (maximum) item from the tree.
+func (t *Tree) FindMax() interface{} {
+	if t.root == nil {
+		return nil
+	}
+	return findmax(t.root).value
+}
+
+func findmin(node *treeNode) *treeNode {
+	if node.left == nil {
+		return node
+	}
+	return findmin(node.left)
+}
+
+// FindMin returns the leftmost (minimum) item from the tree.
+func (t *Tree) FindMin() interface{} {
+	if t.root == nil {
+		return nil
+	}
+	return findmin(t.root).value
 }
 
 // iterData is used when iterating the tree

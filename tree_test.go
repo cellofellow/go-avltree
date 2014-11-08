@@ -1,6 +1,7 @@
 package avltree
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 )
@@ -181,6 +182,16 @@ func TestTree(t *testing.T) {
 	tree.Add(18)
 	tree.Add(17)
 
+	// test FindPath first.
+	vs := tree.FindPath(15)
+	if fmt.Sprintf("%v", vs) != "[16 15]" {
+		t.Errorf("FindPath expected [16 15] got %v\n", fmt.Sprintf("%v", vs))
+	}
+	vs = tree.FindPath(20)
+	if fmt.Sprintf("%v", vs) != "[16 19 20]" {
+		t.Errorf("FindPath expected [16 19 20] got %v\n", fmt.Sprintf("%v", vs))
+	}
+
 	x = 14
 	for v := range tree.Iter() {
 		if v.(int) != x {
@@ -191,6 +202,18 @@ func TestTree(t *testing.T) {
 
 	if x != 21 {
 		t.Errorf("Iter ran wrong number of elements, expected 7, got %d\n", x-14)
+	}
+
+	x = 15
+	// test IterRange
+	for v := range tree.IterRange(15, 19) {
+		if v.(int) != x {
+			t.Error("IterRange expected", x, "got", v.(int))
+		}
+		x++
+	}
+	if x != 20 {
+		t.Errorf("IterRange ran wrong number of elements, expect 3, got %d\n", x-15)
 	}
 
 	// test clear
